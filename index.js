@@ -20,6 +20,10 @@ const QCLASS = Packet.consts.NAME_TO_QCLASS;
 const QTYPE = Packet.consts.NAME_TO_QTYPE;
 const OPCODE = Packet.consts.NAME_TO_OPCODE;
 
+const QCLASS_NAMES = Packet.consts.QCLASS_TO_NAME;
+const QTYPE_NAMES = Packet.consts.QTYPE_TO_NAME;
+const OPCODE_NAMES = Packet.consts.OPCODE_TO_NAME;
+
 // Main export, returns a TCP server.
 exports = module.exports = (params) => {
     // Handle user errors.
@@ -203,3 +207,11 @@ exports.createWriter = (packetSize) => new stream.Transform({
 const frameOptions = { lengthSize: 2 };
 exports.createTcpFrameDecoder = () => frame.decode(frameOptions);
 exports.createTcpFrameEncoder = () => frame.encode(frameOptions);
+
+// Utility: format essential parts of a request as a string for logging.
+exports.formatQuestion = (req) => {
+    const q = req.question[0];
+    return OPCODE_NAMES[req.header.opcode] + ' ' +
+           QCLASS_NAMES[q.class] + ' ' +
+           QTYPE_NAMES[q.type];
+};
