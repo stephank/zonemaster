@@ -27,6 +27,8 @@ const formatLog = (conn, req, message) => {
 const server = zonemaster({
     // The domain we serve.
     domain: 'test.lan',
+    // The slave IPs we notify and allow connections from.
+    slaves: ['::1'],
     // Log requests the stdout.
     logFn(conn, req) {
         console.log(formatLog(conn, req));
@@ -60,7 +62,7 @@ const server = zonemaster({
     // Otherwise, determine the type from `req.question[0].type` and the last
     // serial from `req.authority[0].serial` and act accordingly.
     bodyFn(conn, req, soa, emit, cb) {
-        // Fake an NS-record, and its glue A-record.
+        // Fake an NS-record, and its glue AAAA-record.
         emit({
             class: QCLASS.IN,
             type: QTYPE.NS,
@@ -70,21 +72,21 @@ const server = zonemaster({
         });
         emit({
             class: QCLASS.IN,
-            type: QTYPE.A,
+            type: QTYPE.AAAA,
             name: 'ns.' + this.domain,
             ttl: 3600,
-            address: '127.0.0.1'
+            address: '::1'
         });
         // Artificial delay.
         setTimeout(() => {
-            // Fake a whole bunch of A-records.
+            // Fake a whole bunch of AAAA-records.
             for (let i = 1; i < 255; i++) {
                 emit({
                     class: QCLASS.IN,
-                    type: QTYPE.A,
+                    type: QTYPE.AAAA,
                     name: i + '.' + this.domain,
                     ttl: 3600,
-                    address: '127.0.0.' + i
+                    address: '::1'
                 });
             }
             // Finalize.

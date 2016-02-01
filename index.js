@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-// FIXME: Slaves parameter whitelist
-
 // FIXME: Send NOTIFY.
 
 // FIXME: Async soaFn.
@@ -35,6 +33,12 @@ exports = module.exports = (params) => {
 
     // Create the server and handle connections.
     const server = net.createServer((conn) => {
+        // Check against the list of configured slaves.
+        if (params.slaves.indexOf(conn.remoteAddress) === -1) {
+            conn.destroy();
+            return;
+        }
+
         // Handle connection errors.
         conn.on('error', (err) => {
             // Typical NSD behavior is to not query SOA, but just issue AXFR /
