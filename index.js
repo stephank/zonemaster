@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 'use strict';
 
+// FIXME: Slaves parameter whitelist
+
+// FIXME: Send NOTIFY.
+
+// FIXME: Async soaFn.
+
 // FIXME: Intelligent batching. Right now, we send a fairly safe 20 records per
 // packet, but we should probably fill up to a certain amount of bytes.
-
-// FIXME: Async soaFn and bodyFn.
-
-// FIXME: Export to send NOTIFY.
 
 const net = require('net');
 const stream = require('stream');
@@ -17,6 +19,40 @@ const RCODE = Packet.consts.NAME_TO_RCODE;
 const QCLASS = Packet.consts.NAME_TO_QCLASS;
 const QTYPE = Packet.consts.NAME_TO_QTYPE;
 const OPCODE = Packet.consts.NAME_TO_OPCODE;
+
+// Main export, returns a TCP server.
+exports = module.exports = (params) => {
+    // Handle user errors.
+    params = Object.create(params);
+    params.errorFn = (conn, req, err) => {
+        err.req = req;
+        conn.emit('error', err);
+    };
+
+    // Create the server and handle connections.
+    const server = net.createServer((conn) => {
+        // Handle connection errors.
+        conn.on('error', (err) => {
+            // Typical NSD behavior is to not query SOA, but just issue AXFR /
+            // IXFR and check the first packet, then close the connection if
+            // the serial hasn't changed.
+            if (err.code === 'EPIPE')
+                return;
+
+            err.connection = conn;
+            server.emit('error', err);
+        });
+
+        // Wrap the duplex stream.
+        conn.readableWrap = exports.wrapReadable(conn);
+        conn.writableWrap = exports.wrapWritable(conn, params.packetSize || 4096);
+
+        // Handle messages.
+        exports.processStream(conn, conn.readableWrap, conn.writableWrap, params);
+    });
+
+    return server;
+};
 
 // Simple packet helper for our responses.
 class ResponsePacket extends Packet {
@@ -45,9 +81,9 @@ exports.processStream = (context, readable, writable, params) => {
         // Optional logging hook.
         const q = req.question[0];
         if (params.logFn)
-            params.logFn(context, req, q);
+            params.logFn(context, req);
 
-        // Accept only class SOA, AXFR and IXFR queries
+        // Accept only SOA, AXFR and IXFR queries
         // for class IN and our exact domain.
         if (
             req.header.opcode !== OPCODE.QUERY ||
@@ -64,7 +100,7 @@ exports.processStream = (context, readable, writable, params) => {
 
         // Send to first packet with the SOA record, which
         // is the same for all questions we support.
-        const soa = params.soaFn(context, req, q);
+        const soa = params.soaFn(context, req);
         pkt.header.aa = 1;
         pkt.answer = [soa];
         writable.write(pkt);
@@ -78,9 +114,7 @@ exports.processStream = (context, readable, writable, params) => {
 
         // Call the body builder function.
         params.bodyFn(
-            context, req, q,
-            // Serial for IXFR, or -1.
-            q.type === QTYPE.IXFR ? req.authority[0].serial : -1,
+            context, req, soa,
             // Record emit function.
             (record) => {
                 pending.push(record);
@@ -95,7 +129,7 @@ exports.processStream = (context, readable, writable, params) => {
                     pending = [];
                 }
             },
-            // Final callback.
+            // Final callback function.
             (err) => {
                 if (err) {
                     // Send a server failure packet.
@@ -104,9 +138,9 @@ exports.processStream = (context, readable, writable, params) => {
                     pkt.header.rcode = RCODE.SERVFAIL;
                     writable.write(pkt);
 
-                    // Emit the error on the stream.
+                    // Call the error callback.
                     if (params.errorFn)
-                        params.errorFn(context, req, q, err);
+                        params.errorFn(context, req, err);
                 }
                 else {
                     // Flush any batched records.
@@ -128,12 +162,22 @@ exports.processStream = (context, readable, writable, params) => {
     });
 };
 
-// Transforms for reading and writing DNS TCP frames.
-const frameOptions = { lengthSize: 2 };
-exports.createFrameDecoder = () => frame.decode(frameOptions);
-exports.createFrameEncoder = () => frame.encode(frameOptions);
+// Wrap a readable or writable stream with
+// transforms to read or write DNS messages.
+exports.wrapWritable = (wstream, packetSize) => {
+    const start = exports.createWriter(packetSize);
+    start
+        .pipe(exports.createTcpFrameEncoder())
+        .pipe(wstream);
+    return start;
+};
+exports.wrapReadable = (rstream) => {
+    return rstream
+        .pipe(exports.createTcpFrameDecoder())
+        .pipe(exports.createParser())
+};
 
-// Transforms for reading and writing DNS messages.
+// Transform between DNS messages and DNS message buffers.
 exports.createParser = () => new stream.Transform({
     readableObjectMode: true,
     writableObjectMode: true,
@@ -155,25 +199,7 @@ exports.createWriter = (packetSize) => new stream.Transform({
     }
 });
 
-// Wrap readable and writable streams using the above transforms.
-exports.wrapWritable = (wstream, packetSize) => {
-    const start = exports.createWriter(packetSize);
-    start
-        .pipe(exports.createFrameEncoder())
-        .pipe(wstream);
-    return start;
-};
-exports.wrapReadable = (rstream) => {
-    return rstream
-        .pipe(exports.createFrameDecoder())
-        .pipe(exports.createParser())
-};
-
-// Complete TCP server.
-exports.createServer = (params) => net.createServer((conn) => {
-    // Wrap the duplex stream.
-    conn.readableWrap = exports.wrapReadable(conn);
-    conn.writableWrap = exports.wrapWritable(conn, params.packetSize || 4096);
-    // Handle messages.
-    exports.processStream(conn, conn.readableWrap, conn.writableWrap, params);
-});
+// Transform between DNS message buffers and a plain data stream.
+const frameOptions = { lengthSize: 2 };
+exports.createTcpFrameDecoder = () => frame.decode(frameOptions);
+exports.createTcpFrameEncoder = () => frame.encode(frameOptions);
