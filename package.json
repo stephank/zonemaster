@@ -1,0 +1,32 @@
+{
+  "name": "zonemaster",
+  "version": "0.0.0",
+  "description": "DNS server implementing just zone transfer",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stephank/zonetransfer.git"
+  },
+  "keywords": [
+    "dns",
+    "axfr",
+    "nameserver"
+  ],
+  "author": "Stéphan Kochen <stephan@kochen.nl>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/stephank/zonetransfer/issues"
+  },
+  "homepage": "https://github.com/stephank/zonetransfer#readme",
+  "dependencies": {
+    "frame-stream": "^1.1.1",
+    "native-dns-packet": "https://github.com/stephank/native-dns-packet.git"
+  },
+  "eslintConfig": {
+    "extends": "eslint:recommended",
+    "env": {
+      "es6": true,
+      "node": true
+    }
+  }
+}
