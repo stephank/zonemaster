@@ -215,3 +215,6 @@ exports.formatQuestion = (req) => {
            QCLASS_NAMES[q.class] + ' ' +
            QTYPE_NAMES[q.type];
 };
+
+// Utility: re-export constants.
+exports.consts = Packet.consts;
