@@ -95,7 +95,7 @@ const server = zonemaster({
 
 // Log errors to stderr.
 server.on('error', (err) => {
-    console.error(formatLog(err.connection, err.req, err.stack));
+    console.error(formatLog(err.connection, err.request, err.stack));
 });
 
 // Start listening.

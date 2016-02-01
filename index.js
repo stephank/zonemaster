@@ -29,7 +29,7 @@ exports = module.exports = (params) => {
     // Handle user errors.
     params = Object.create(params);
     params.errorFn = (conn, req, err) => {
-        err.req = req;
+        err.request = req;
         conn.emit('error', err);
     };
 
