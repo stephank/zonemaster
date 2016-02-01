@@ -31,7 +31,7 @@ const server = zonemaster({
     logFn(conn, req) {
         console.log(formatLog(conn, req));
     },
-    // Build a dummy SOA record. This particular record has some very short
+    // Build a dummy SOA-record. This particular record has some very short
     // refresh times, which is fun to test with.
     soaFn(conn, req) {
         return {
@@ -48,8 +48,8 @@ const server = zonemaster({
             minimum: 3600
         };
     },
-    // Build the body of the AXFR / IXFR request, that is, everything but the
-    // SOA record. The SOA record from soaFn is passed as a parameter merely
+    // Build the body of the AXFR/IXFR-request, that is, everything but the
+    // SOA-record. The SOA-record from soaFn is passed as a parameter merely
     // because it might be useful.
     //
     // To build the body, call emit with an object for every record to send.
@@ -60,7 +60,7 @@ const server = zonemaster({
     // Otherwise, determine the type from `req.question[0].type` and the last
     // serial from `req.authority[0].serial` and act accordingly.
     bodyFn(conn, req, soa, emit, cb) {
-        // Fake some NS records, and their A glue records.
+        // Fake an NS-record, and its glue A-record.
         emit({
             class: QCLASS.IN,
             type: QTYPE.NS,
@@ -77,7 +77,7 @@ const server = zonemaster({
         });
         // Artificial delay.
         setTimeout(() => {
-            // Fake a whole bunch of records.
+            // Fake a whole bunch of A-records.
             for (let i = 1; i < 255; i++) {
                 emit({
                     class: QCLASS.IN,
