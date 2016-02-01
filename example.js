@@ -13,7 +13,7 @@ const QTYPE = zonemaster.consts.NAME_TO_QTYPE;
 // Utility function used to format log messages.
 const formatLog = (conn, req, message) => {
     const parts = [];
-    if (conn)
+    if (conn && conn.remoteAddress)
         parts.push(conn.remoteAddress);
     if (req)
         parts.push(zonemaster.formatQuestion(req));
@@ -103,4 +103,7 @@ server.on('error', (err) => {
 // Start listening.
 server.listen(10053, () => {
     console.log('Listening on port ' + server.address().port);
+
+    // Immediately send a NOTIFY to slaves.
+    server.notify();
 });

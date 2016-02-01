@@ -1,13 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-// FIXME: Send NOTIFY.
-
-// FIXME: Async soaFn.
-
-// FIXME: Intelligent batching. Right now, we send a fairly safe 20 records per
-// packet, but we should probably fill up to a certain amount of bytes.
-
 const net = require('net');
 const stream = require('stream');
 const frame = require('frame-stream');
@@ -59,6 +52,39 @@ exports = module.exports = (params) => {
         exports.processStream(conn, conn.readableWrap, conn.writableWrap, params);
     });
 
+    // Notify configured slaves that the zone has changed.
+    server.notify = () => {
+        // Build the request packet.
+        const req = new Packet();
+        req.header.opcode = OPCODE.NOTIFY;
+        req.header.aa = 1;
+        req.question = [{
+            class: QCLASS.IN,
+            type: QTYPE.SOA,
+            name: params.domain
+        }];
+
+        // Connect to every slave.
+        params.slaves.forEach((slave) => {
+            // FIXME: Configurable slave port.
+            const conn = net.connect(53, slave);
+            const writable = exports.wrapWritable(conn, params.packetSize || 4096);
+
+            // Send in fire and forget fashion.
+            // FIXME: Wait for response, or retry.
+            conn.on('connect', () => {
+                writable.end(req);
+            });
+
+            // Handle connection errors.
+            conn.on('error', (err) => {
+                err.request = req;
+                err.connection = conn;
+                server.emit('error', err);
+            });
+        });
+    };
+
     return server;
 };
 
@@ -108,6 +134,7 @@ exports.processStream = (context, readable, writable, params) => {
 
         // Send to first packet with the SOA record, which
         // is the same for all questions we support.
+        // FIXME: Async soaFn.
         const soa = params.soaFn(context, req);
         pkt.header.aa = 1;
         pkt.answer = [soa];
@@ -128,6 +155,9 @@ exports.processStream = (context, readable, writable, params) => {
                 pending.push(record);
 
                 // Send a packet if we've reached the batch limit.
+                // FIXME: Intelligent batching. Right now, we send a fairly
+                // safe 20 records per packet, but we should probably fill up
+                // to a certain amount of bytes.
                 if (pending.length >= (params.batchSize || 20)) {
                     const pkt = new ResponsePacket(req);
                     pkt.header.aa = 1;
