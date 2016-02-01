@@ -16,6 +16,20 @@ const QTYPE_NAMES = Packet.consts.QTYPE_TO_NAME;
 const OPCODE_NAMES = Packet.consts.OPCODE_TO_NAME;
 
 // Main export, returns a TCP server.
+// Required properties of params are:
+//  - domain: the domain name to serve.
+//  - slaves: array of slave IP address to whitelist and notify.
+//  - soaFn: callback to build the SOA-record.
+//    signature is (connection, request) => record
+//  - bodyFn: callback to build the AXFR/IXFR-question response.
+//    signature is (connection, request, soaRecord, emitFn, callback)
+//    emitFn signature is (record)
+//    callback signature is (error)
+// Optional properties of params are:
+//  - logFn: function called for every request to write an access log entry
+//    signature is (connection, request)
+//  - packetSize: maximum packet size to use for sending. (default: 4096)
+//  - batchSize: maximum records to send in one packet. (default: 20)
 exports = module.exports = (params) => {
     // Handle user errors.
     params = Object.create(params);
@@ -99,6 +113,7 @@ class ResponsePacket extends Packet {
 
 // Handle messages on the read/write packet stream pair.
 // The context parameter is passed to callback functions.
+// See the main export for a description of the params object.
 exports.processStream = (context, readable, writable, params) => {
     // Packet listener.
     readable.on('data', (req) => {
@@ -200,8 +215,11 @@ exports.processStream = (context, readable, writable, params) => {
     });
 };
 
-// Wrap a readable or writable stream with
-// transforms to read or write DNS messages.
+// Wrap a readable or writable stream with transforms so that the wrapped
+// versions operate on Packet instances.
+//
+// The writable function takes a maximum packet size, beyond which the DNS
+// packet is truncated.
 exports.wrapWritable = (wstream, packetSize) => {
     const start = exports.createWriter(packetSize);
     start
@@ -215,7 +233,12 @@ exports.wrapReadable = (rstream) => {
         .pipe(exports.createParser())
 };
 
-// Transform between DNS messages and DNS message buffers.
+// Transforms that implement the DNS message format. These operate on message
+// buffers on one end, and on Packet instances on the other end. (Both in
+// object mode.)
+//
+// The writable function takes a maximum packet size, beyond which the DNS
+// packet is truncated.
 exports.createParser = () => new stream.Transform({
     readableObjectMode: true,
     writableObjectMode: true,
@@ -237,7 +260,8 @@ exports.createWriter = (packetSize) => new stream.Transform({
     }
 });
 
-// Transform between DNS message buffers and a plain data stream.
+// Transforms that implement DNS TCP framing. These operate on plain streams of
+// data on one end, and message buffers (in object mode) on the other end.
 const frameOptions = { lengthSize: 2 };
 exports.createTcpFrameDecoder = () => frame.decode(frameOptions);
 exports.createTcpFrameEncoder = () => frame.encode(frameOptions);
