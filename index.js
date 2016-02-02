@@ -82,7 +82,7 @@ exports = module.exports = (params) => {
             // Handle user errors.
             (conn, req, err) => {
                 err.request = req;
-                conn.emit('error', req);
+                conn.emit('error', err);
             }
         );
     });
