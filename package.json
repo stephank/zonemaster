@@ -28,5 +28,12 @@
       "es6": true,
       "node": true
     }
+  },
+  "devDependencies": {
+    "concat-stream": "^1.5.1",
+    "tap": "^5.4.2"
+  },
+  "scripts": {
+    "test": "tap test.js"
   }
 }
