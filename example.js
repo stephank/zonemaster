@@ -33,8 +33,8 @@ const server = zonemaster({
     },
     // Build a dummy SOA-record. This particular record has some very short
     // refresh times, which is fun to test with.
-    soaFn(conn, req) {
-        return {
+    soaFn(conn, req, cb) {
+        cb(null, {
             class: QCLASS.IN,
             type: QTYPE.SOA,
             name: this.domain,
@@ -46,7 +46,7 @@ const server = zonemaster({
             retry: 10,
             expiration: 60,
             minimum: 3600
-        };
+        });
     },
     // Build the body of the AXFR/IXFR-request, that is, everything but the
     // SOA-record. The SOA-record from soaFn is passed as a parameter merely

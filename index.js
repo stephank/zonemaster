@@ -256,32 +256,35 @@ exports.processStream = (context, readable, writable, params, errorFn) => {
             return writable.write(pkt);
         }
 
-        // Send to first packet with the SOA record, which
-        // is the same for all questions we support.
-        // FIXME: Async soaFn.
-        const soa = params.soaFn(context, req);
-        pkt.header.aa = 1;
-        pkt.answer = [soa];
-        writable.write(pkt);
+        // Call the SOA-record builder function.
+        params.soaFn(context, req, (err, soa) => {
+            if (err)
+                return fail(err, true);
 
-        // Stop here if it's just a SOA query.
-        if (q.type !== QTYPE.AXFR && q.type !== QTYPE.IXFR)
-            return;
+            // Send to first packet with the SOA record, which
+            // is the same for all questions we support.
+            pkt.header.aa = 1;
+            pkt.answer = [soa];
+            writable.write(pkt);
 
-        // Records pending to be sent in a batch.
-        let pending = [];
+            // Stop here if it's just a SOA query.
+            if (q.type !== QTYPE.AXFR && q.type !== QTYPE.IXFR)
+                return;
 
-        // Call the body builder function.
-        params.bodyFn(
-            context, req, soa,
+            // Records pending to be sent in a batch.
+            let pending = [];
+
+            // Call the body builder function.
+            params.bodyFn(context, req, soa, emitFn, bodyCb);
+
             // Record emit function.
-            (record) => {
+            function emitFn(record) {
                 pending.push(record);
 
                 // Send a packet if we've reached the batch limit.
                 // FIXME: Intelligent batching. Right now, we send a fairly
-                // safe 20 records per packet, but we should probably fill up
-                // to a certain amount of bytes.
+                // safe 20 records per packet, but we should probably fill
+                // up to a certain amount of bytes.
                 if (pending.length >= (params.batchSize || 20)) {
                     const pkt = new ResponsePacket(req);
                     pkt.header.aa = 1;
@@ -290,37 +293,43 @@ exports.processStream = (context, readable, writable, params, errorFn) => {
 
                     pending = [];
                 }
-            },
-            // Final callback function.
-            (err) => {
-                if (err) {
-                    // Send a server failure packet.
-                    const pkt = new ResponsePacket(req);
-                    pkt.header.aa = 1;
-                    pkt.header.rcode = RCODE.SERVFAIL;
-                    writable.write(pkt);
-
-                    // Call the error callback.
-                    if (errorFn)
-                        errorFn(context, req, err);
-                }
-                else {
-                    // Flush any batched records.
-                    if (pending.length) {
-                        const pkt = new ResponsePacket(req);
-                        pkt.header.aa = 1;
-                        pkt.answer = pending;
-                        writable.write(pkt);
-                    }
-
-                    // Send closing packet, repeating the SOA record.
-                    const pkt = new ResponsePacket(req);
-                    pkt.header.aa = 1;
-                    pkt.answer = [soa];
-                    writable.write(pkt);
-                }
             }
-        );
+
+            // Final callback function.
+            function bodyCb(err) {
+                if (err)
+                    return fail(err);
+
+                // Flush any batched records.
+                if (pending.length) {
+                    const pkt = new ResponsePacket(req);
+                    pkt.header.aa = 1;
+                    pkt.answer = pending;
+                    writable.write(pkt);
+                }
+
+                // Send closing packet, repeating the SOA record.
+                const pkt = new ResponsePacket(req);
+                pkt.header.aa = 1;
+                pkt.answer = [soa];
+                writable.write(pkt);
+            }
+        });
+
+        // Handle user failure.
+        function fail(err, isFirst) {
+            // Send a server failure packet.
+            const pkt = new ResponsePacket(req);
+            pkt.header.aa = 1;
+            pkt.header.rcode = RCODE.SERVFAIL;
+            if (isFirst)
+                pkt.question = req.question;
+            writable.write(pkt);
+
+            // Call the error callback.
+            if (errorFn)
+                errorFn(context, req, err);
+        }
     });
 };
 
