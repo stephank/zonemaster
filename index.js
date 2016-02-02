@@ -58,10 +58,8 @@ exports = module.exports = (params) => {
 
         // Check against the list of configured slaves.
         const slave = conn.slave = slavesByIp[addr];
-        if (!slave) {
-            conn.destroy();
-            return;
-        }
+        if (!slave)
+            return conn.destroy();
 
         // Handle connection errors.
         conn.on('error', (err) => {
@@ -168,11 +166,7 @@ exports = module.exports = (params) => {
                 // Handle errors.
                 if (err) {
                     pending = -1;
-                    if (cb)
-                        cb(err);
-                    else
-                        server.emit('error', err);
-                    return;
+                    return cb ? cb(err) : server.emit('error', err);
                 }
 
                 // Process result.

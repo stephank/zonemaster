@@ -88,7 +88,7 @@ const server = zonemaster({
                 });
             }
             // Finalize.
-            cb();
+            cb(null);
         }, 1000);
     }
 });
