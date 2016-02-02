@@ -47,13 +47,6 @@ const OPCODE_NAMES = Packet.consts.OPCODE_TO_NAME;
 //
 // The exception is `slaves`, which acts like a call to `setSlaves`.
 exports = module.exports = (params) => {
-    // Handle user errors.
-    params = Object.create(params);
-    params.errorFn = (conn, req, err) => {
-        err.request = req;
-        conn.emit('error', err);
-    };
-
     // The currently configured slave list.
     let slaves = [];
     // Slaves indexed by IP.
@@ -86,7 +79,14 @@ exports = module.exports = (params) => {
         exports.addWrappers(conn, params.packetSize || 4096);
 
         // Handle messages.
-        exports.processStream(conn, conn.readableWrap, conn.writableWrap, params);
+        exports.processStream(
+            conn, conn.readableWrap, conn.writableWrap, params,
+            // Handle user errors.
+            (conn, req, err) => {
+                err.request = req;
+                conn.emit('error', req);
+            }
+        );
     });
 
     // Convenience.
@@ -224,9 +224,12 @@ class ResponsePacket extends Packet {
 }
 
 // Handle messages on the read/write packet stream pair.
-// The context parameter is passed to callback functions.
+//
+// The `context` parameter is passed to callback functions.
 // See the main export for a description of the params object.
-exports.processStream = (context, readable, writable, params) => {
+//
+// `errorFn` is optional and called on user callback errors.
+exports.processStream = (context, readable, writable, params, errorFn) => {
     // Packet listener.
     readable.on('data', (req) => {
         // Create the first response packet.
@@ -304,8 +307,8 @@ exports.processStream = (context, readable, writable, params) => {
                     writable.write(pkt);
 
                     // Call the error callback.
-                    if (params.errorFn)
-                        params.errorFn(context, req, err);
+                    if (errorFn)
+                        errorFn(context, req, err);
                 }
                 else {
                     // Flush any batched records.
