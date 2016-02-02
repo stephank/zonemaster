@@ -1,7 +1,7 @@
 {
   "name": "zonemaster",
   "version": "0.0.0",
-  "description": "DNS server implementing just zone transfer",
+  "description": "DNS server library implementing just zone transfer",
   "main": "index.js",
   "repository": {
     "type": "git",

@@ -59,6 +59,8 @@ const server = zonemaster({
     // If IXFR is not supported, simply treat everything like an AXFR.
     // Otherwise, determine the type from `req.question[0].type` and the last
     // serial from `req.authority[0].serial` and act accordingly.
+    //
+    // This is an example of treating everything as AXFR.
     bodyFn(conn, req, soa, emit, cb) {
         // Fake an NS-record, and its glue AAAA-record.
         emit({
