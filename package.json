@@ -1,6 +1,6 @@
 {
   "name": "zonemaster",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "DNS server library implementing just zone transfer",
   "main": "index.js",
   "repository": {
