@@ -27,8 +27,6 @@ const formatLog = (conn, req, message) => {
 const server = zonemaster({
     // The domain we serve.
     domain: 'test.lan',
-    // The slave IPs we notify and allow connections from.
-    slaves: ['::1'],
     // Log requests the stdout.
     logFn(conn, req) {
         console.log(formatLog(conn, req));
@@ -100,10 +98,18 @@ server.on('error', (err) => {
     console.error(formatLog(err.connection, err.request, err.stack));
 });
 
-// Start listening.
-server.listen(10053, () => {
-    console.log('Listening on port ' + server.address().port);
+// Configure some slaves.
+server.setSlaves(['localhost@11053'], (err) => {
+    if (err) {
+        console.error(err.stack);
+        process.exit(1);
+    }
 
-    // Immediately send a NOTIFY to slaves.
-    server.notify();
+    // Start listening.
+    server.listen(10053, () => {
+        console.log('Listening on port ' + server.address().port);
+
+        // Immediately send a NOTIFY to slaves.
+        server.notify();
+    });
 });
