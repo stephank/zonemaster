@@ -22,9 +22,6 @@ const OPCODE_NAMES = Packet.consts.OPCODE_TO_NAME;
 //
 //  - `domain`: The domain name to serve.
 //
-//  - `slaves`: Array of slave hosts to whitelist and notify.
-//    See `setSlaves` for a description.
-//
 //  - `soaFn`: Callback to build the SOA-record.
 //    Signature is `(connection, request) => soaRecord`
 //
@@ -34,6 +31,9 @@ const OPCODE_NAMES = Packet.consts.OPCODE_TO_NAME;
 //    `callback` signature is `(error)`
 //
 // Optional properties of params are:
+//
+//  - `slaves`: Array of slave hosts to whitelist and notify.
+//    See `setSlaves` for a description.
 //
 //  - `logFn`: Function called for every request to write an access log entry.
 //    Signature is `(connection, request)`
