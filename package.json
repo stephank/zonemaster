@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stephank/zonetransfer.git"
+    "url": "git+https://github.com/stephank/zonemaster.git"
   },
   "keywords": [
     "dns",
@@ -15,9 +15,9 @@
   "author": "Stéphan Kochen <stephan@kochen.nl>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/stephank/zonetransfer/issues"
+    "url": "https://github.com/stephank/zonemaster/issues"
   },
-  "homepage": "https://github.com/stephank/zonetransfer#readme",
+  "homepage": "https://github.com/stephank/zonemaster#readme",
   "dependencies": {
     "frame-stream": "^1.1.1",
     "native-dns-packet": "https://github.com/stephank/native-dns-packet.git"
