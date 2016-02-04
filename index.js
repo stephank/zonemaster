@@ -47,17 +47,12 @@ const OPCODE_NAMES = Packet.consts.OPCODE_TO_NAME;
 //
 // The exception is `slaves`, which acts like a call to `setSlaves`.
 exports = module.exports = (params) => {
-    // The currently configured slave list.
-    let slaves = [];
-    // Slaves indexed by IP.
-    let slavesByIp = Object.create(null);
-
     // Create the server and handle connections.
     const server = net.createServer((conn) => {
         const addr = exports.sanitizeAddress(conn.remoteAddress);
 
         // Check against the list of configured slaves.
-        const slave = conn.slave = slavesByIp[addr];
+        const slave = conn.slave = server.slavesByIp[addr];
         if (!slave)
             return conn.destroy();
 
@@ -87,7 +82,11 @@ exports = module.exports = (params) => {
         );
     });
 
-    // Convenience.
+    // The currently configured slave list.
+    server.slaves = [];
+    // Slaves indexed by IP.
+    server.slavesByIp = Object.create(null);
+    // The parameters object.
     server.params = params;
 
     // Notify configured slaves that the zone has changed.
@@ -103,7 +102,7 @@ exports = module.exports = (params) => {
         }];
 
         // Connect to every slave.
-        slaves.forEach((slave) => {
+        server.slaves.forEach((slave) => {
             const conn = net.connect(slave.port, slave.host);
             conn.slave = slave;
 
@@ -138,9 +137,9 @@ exports = module.exports = (params) => {
     // are emitted on the server object.
     //
     // (In the future, objects may contain more settings, such as keys.)
-    server.setSlaves = (newSlaves, cb) => {
+    server.setSlaves = (slaves, cb) => {
         // Expand strings to objects.
-        newSlaves = newSlaves.map((slave) => {
+        slaves = slaves.map((slave) => {
             if (typeof(slave) === 'string') {
                 const parts = slave.split('@', 2);
                 return {
@@ -154,10 +153,10 @@ exports = module.exports = (params) => {
         });
 
         // Resolve hosts.
-        var pending = newSlaves.length;
+        var pending = slaves.length;
         if (pending === 0)
             onComplete();
-        newSlaves.forEach((slave) => {
+        slaves.forEach((slave) => {
             dns.lookup(slave.host, { all: true }, (err, addrs) => {
                 // Aborted.
                 if (pending === -1)
@@ -184,16 +183,16 @@ exports = module.exports = (params) => {
         // Finalize.
         function onComplete() {
             // Build the IP index.
-            const newSlavesByIp = Object.create(null);
-            newSlaves.forEach((slave) => {
+            const slavesByIp = Object.create(null);
+            slaves.forEach((slave) => {
                 slave.addresses.forEach((addr) => {
-                    newSlavesByIp[addr] = slave;
+                    slavesByIp[addr] = slave;
                 });
             });
 
             // Commit.
-            slaves = newSlaves;
-            slavesByIp = newSlavesByIp;
+            server.slaves = slaves;
+            server.slavesByIp = slavesByIp;
 
             // Callback.
             if (cb)
