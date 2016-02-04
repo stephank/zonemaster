@@ -51,9 +51,9 @@ exports = module.exports = (params) => {
     const server = net.createServer((conn) => {
         const addr = exports.sanitizeAddress(conn.remoteAddress);
 
-        // Check against the list of configured slaves.
+        // Check against the whitelist.
         const slave = conn.slave = server.slavesByIp[addr];
-        if (!slave)
+        if (!slave || !slave.whitelist)
             return conn.destroy();
 
         // Handle connection errors.
@@ -103,6 +103,9 @@ exports = module.exports = (params) => {
 
         // Connect to every slave.
         server.slaves.forEach((slave) => {
+            if (!slave.notify)
+                return;
+
             const conn = net.connect(slave.port, slave.host);
             conn.slave = slave;
 
@@ -136,20 +139,27 @@ exports = module.exports = (params) => {
     // A callback can be specified to capture errors. If not specified, errors
     // are emitted on the server object.
     //
-    // (In the future, objects may contain more settings, such as keys.)
+    // The object form allows additional options:
+    //
+    //  - notify: Whether to send NOTIFY messages (default: true)
+    //  - whitelist: Whether to allow AXFR (default: true)
+    //
     server.setSlaves = (slaves, cb) => {
-        // Expand strings to objects.
         slaves = slaves.map((slave) => {
+            // Expand strings to objects.
             if (typeof(slave) === 'string') {
                 const parts = slave.split('@', 2);
-                return {
+                slave = {
                     host: parts[0],
                     port: parseInt(parts[1], 10) || 53
                 };
             }
-            else {
-                return Object.assign({}, slave);
-            }
+
+            // Apply defaults.
+            return Object.assign({
+                notify: true,
+                whitelist: true
+            }, slave);
         });
 
         // Resolve hosts.
